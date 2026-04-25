@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Our Team - Stress Sharing Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;700;900&display=swap"
+    rel="stylesheet" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --accent: #6366f1;
+      --accent2: #a78bfa;
+      --accent3: #ec4899;
+      --bg: #050510;
+      --card-bg: rgba(15, 15, 30, 0.85);
+      --text: #f0f0f5;
+      --text-muted: rgba(240, 240, 245, 0.5);
+    }
+
+    html {
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent) transparent;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background: var(--bg);
+    }
+
+    /* ── Logo ── */
+    .logo {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .logo h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(1rem, 2.5vw, 1.4rem);
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo p {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ── Names bar ── */
+    .names {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      display: flex;
+      gap: 40px;
+      pointer-events: none;
+    }
+
+    .names h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      transition: color 0.5s ease, transform 0.5s ease, text-shadow 0.5s ease;
+      position: relative;
+    }
+
+    .names h2.active {
+      color: var(--accent);
+      transform: scale(1.15);
+      text-shadow: 0 0 20px var(--accent);
+    }
+
+    .names h2::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      width: 0%;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+
+    .names h2.active::after {
+      width: 100%;
+    }
+
+    /* ── Wrapper (horizontal scroll) ── */
+    .wrapper {
+      display: flex;
+      width: fit-content;
+      min-height: 100vh;
+      align-items: center;
+      padding: 0 calc(50vw - 180px);
+      gap: 120px;
+    }
+
+    /* ── Character card ── */
+    .character {
+      flex-shrink: 0;
+      width: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      opacity: 0;
+      transform: translateY(40px) scale(0.9);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .character.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .character.centered {
+      transform: translateY(-10px) scale(1.05);
+    }
+
+    .character img {
+      width: 280px;
+      height: 340px;
+      object-fit: cover;
+      object-position: top;
+      border-radius: 24px;
+      border: 2px solid rgba(99, 102, 241, 0.2);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(99, 102, 241, 0.1);
+      transition: border-color 0.5s, box-shadow 0.5s, transform 0.5s;
+    }
+
+    .character.centered img {
+      border-color: var(--accent);
+      box-shadow: 0 20px 80px rgba(0, 0, 0, 0.7), 0 0 60px rgba(99, 102, 241, 0.25);
+      transform: scale(1.03);
+    }
+
+    .character .data {
+      margin-top: 28px;
+      text-align: center;
+      width: 100%;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 28px 24px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease 0.2s, transform 0.6s ease 0.2s, border-color 0.5s, box-shadow 0.5s;
+    }
+
+    .character.visible .data {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .character.centered .data {
+      border-color: rgba(99, 102, 241, 0.3);
+      box-shadow: 0 0 30px rgba(99, 102, 241, 0.15);
+    }
+
+    .character .data h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      background: linear-gradient(135deg, #fff, var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+
+    .character .data label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: block;
+      margin-top: 10px;
+    }
+
+    .character .data p {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.7);
+      line-height: 1.5;
+      margin-top: 2px;
+    }
+
+    .character .data .notes {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.78rem;
+      font-style: italic;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ── Mouse indicator ── */
+    .mouse {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      color: var(--text-muted);
+      animation: bob 2s ease-in-out infinite;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .mouse span {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    @keyframes bob {
+
+      0%,
+      100% {
+        transform: translateX(-50%) translateY(0);
+      }
+
+      50% {
+        transform: translateX(-50%) translateY(6px);
+      }
+    }
+
+    /* ── Background particles ── */
+    .bg-particles {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.3);
+      animation: float linear infinite;
+    }
+
+    @keyframes float {
+      0% {
+        transform: translateY(100vh) translateX(0);
+        opacity: 0;
+      }
+
+      10% {
+        opacity: 1;
+      }
+
+      90% {
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(-10vh) translateX(40px);
+        opacity: 0;
+      }
+    }
+
+    /* ── Progress bar ── */
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+      z-index: 200;
+      transition: width 0.1s ease;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="progress-bar" id="progress"></div>
+
+  <!-- Background particles -->
+  <div class="bg-particles" id="particles"></div>
+
+  <!-- Logo -->
+  <div class="logo">
+    <h1>Stress Sharing Platform</h1>
+    <p>Meet the creators</p>
+  </div>
+
+  <!-- Names -->
+  <div class="names" id="names">
+    <h2 class="active">Sabari</h2>
+    <h2>Gnanavel</h2>
+    <h2>Guna</h2>
+  </div>
+
+  <!-- Horizontal scroll wrapper -->
+  <div class="wrapper" id="wrapper">
+
+    <div class="character" data-index="0">
+      <img src="sabari.jpg" alt="Sabari" />
+      <div class="data">
+        <h3>Sabari</h3>
+        <div>
+          <label>Role:</label>
+          <p>Frontend Developer</p>
+          <label>Specialty:</label>
+          <p>React, Three.js, WebGL & UI Animation</p>
+          <label>Contact:</label>
+          <p>📷 @sabari &nbsp;|&nbsp; 📧 sabari@gmail.com</p>
+        </div>
+        <p class="notes">Creative mind behind the platform's immersive visual experience. Turns ideas into interactive
+          reality.</p>
+      </div>
+    </div>
+
+    <div class="character" data-index="1">
+      <img src="gnanavel.jpg" alt="Gnanavel" />
+      <div class="data">
+        <h3>Gnanavel</h3>
+        <div>
+          <label>Role:</label>
+          <p>Backend Developer</p>
+          <label>Specialty:</label>
+          <p>Node.js, Database Design & API Architecture</p>
+          <label>Contact:</label>
+          <p>📷 @member2 &nbsp;|&nbsp; 📧 member2@gmail.com</p>
+        </div>
+        <p class="notes">Architecting the backbone that powers secure, anonymous story sharing across the community.</p>
+      </div>
+    </div>
+
+    <div class="character" data-index="2">
+      <img src="guna.jpg" alt="Guna" />
+      <div class="data">
+        <h3>Guna</h3>
+        <div>
+          <label>Role:</label>
+          <p>UI/UX Designer</p>
+          <label>Specialty:</label>
+          <p>Figma, Motion Design & User Research</p>
+          <label>Contact:</label>
+          <p>📷 @member3 &nbsp;|&nbsp; 📧 member3@gmail.com</p>
+        </div>
+        <p class="notes">Crafting the calming, intuitive interfaces that make sharing feel safe and beautiful.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Mouse indicator -->
+  <div class="mouse">
+    <svg width="28" height="28" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="14" y="8" width="20" height="32" rx="10" stroke="currentColor" stroke-width="2" />
+      <line x1="24" y1="16" x2="24" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <animate attributeName="y1" values="16;14;16" dur="1.5s" repeatCount="indefinite" />
+        <animate attributeName="y2" values="22;20;22" dur="1.5s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" />
+      </line>
+    </svg>
+    <span>Scroll to explore</span>
+  </div>
+
+  <script>
+    // Generate background particles
+    const particlesContainer = document.getElementById('particles');
+    for (let i = 0; i < 40; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.animationDuration = (6 + Math.random() * 10) + 's';
+      p.style.animationDelay = Math.random() * 8 + 's';
+      p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+      particlesContainer.appendChild(p);
+    }
+
+    // Horizontal scroll logic
+    const wrapper = document.getElementById('wrapper');
+    const characters = document.querySelectorAll('.character');
+    const nameEls = document.querySelectorAll('.names h2');
+    const progress = document.getElementById('progress');
+
+    let scrollPos = 0;
+    let targetScroll = 0;
+    const scrollSpeed = 1.2;
+
+    // Calculate total scrollable width
+    const getMaxScroll = () => wrapper.scrollWidth - window.innerWidth;
+
+    // Smooth scroll
+    window.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      targetScroll += e.deltaY * scrollSpeed;
+      targetScroll = Math.max(0, Math.min(targetScroll, getMaxScroll()));
+    }, { passive: false });
+
+    // Touch support
+    let touchStartX = 0;
+    window.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      const dx = touchStartX - e.touches[0].clientX;
+      touchStartX = e.touches[0].clientX;
+      targetScroll += dx * 2;
+      targetScroll = Math.max(0, Math.min(targetScroll, getMaxScroll()));
+    }, { passive: true });
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Smooth interpolation
+      scrollPos += (targetScroll - scrollPos) * 0.08;
+
+      // Apply transform
+      wrapper.style.transform = `translateX(${-scrollPos}px)`;
+
+      // Progress bar
+      const maxS = getMaxScroll();
+      const pct = maxS > 0 ? (scrollPos / maxS) * 100 : 0;
+      progress.style.width = pct + '%';
+
+      // Update character states
+      const viewCenter = scrollPos + window.innerWidth / 2;
+
+      let closestIndex = 0;
+      let closestDist = Infinity;
+
+      characters.forEach((char, i) => {
+        const charCenter = char.offsetLeft + char.offsetWidth / 2;
+        const dist = Math.abs(viewCenter - charCenter);
+
+        // Visibility
+        if (dist < window.innerWidth * 0.8) {
+          char.classList.add('visible');
+        }
+
+        // Find closest to center
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIndex = i;
+        }
+
+        // Reset centered
+        char.classList.remove('centered');
+      });
+
+      // Center highlight
+      if (closestDist < window.innerWidth * 0.45) {
+        characters[closestIndex].classList.add('centered');
+      }
+
+      // Update names
+      nameEls.forEach((n, i) => {
+        n.classList.toggle('active', i === closestIndex);
+      });
+    }
+
+    // Initial visibility
+    characters[0].classList.add('visible');
+
+    animate();
+
+    // Handle resize
+    window.addEventListener('resize', () => {
+      targetScroll = Math.min(targetScroll, getMaxScroll());
+    });
+  </script>
+</body>
+
+</html>

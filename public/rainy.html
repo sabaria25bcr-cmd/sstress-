@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rainy Background</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+
+    #custom-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    #custom-video {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      display: none;
+    }
+
+    #bg-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    #color-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 2;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    #panel {
+      position: fixed;
+      right: -340px;
+      top: 0;
+      width: 320px;
+      height: 100%;
+      background: rgba(10,10,20,0.95);
+      backdrop-filter: blur(20px);
+      z-index: 100;
+      transition: right 0.3s ease;
+      overflow-y: auto;
+      padding: 20px;
+      font-family: sans-serif;
+      color: #fff;
+      border-left: 1px solid rgba(255,255,255,0.1);
+    }
+    #panel.open { right: 0; }
+
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .panel-header h2 { font-size: 1rem; font-weight: 600; }
+    #panel-close { background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; }
+
+    .slider-group { margin-bottom: 16px; }
+    .slider-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: #aaa; margin-bottom: 6px; }
+    input[type=range] { width: 100%; accent-color: #6366f1; }
+
+    .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+    .preset-item {
+      aspect-ratio: 16/9;
+      border-radius: 8px;
+      background-size: cover;
+      background-position: center;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .preset-item.active { border-color: #6366f1; }
+    .preset-item[data-label]::after {
+      content: attr(data-label);
+      position: absolute;
+      bottom: 2px; left: 0; right: 0;
+      text-align: center;
+      font-size: 9px;
+      color: #fff;
+      text-shadow: 0 1px 2px #000;
+    }
+    .preset-item.video::before {
+      content: '▶';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(255,255,255,0.7);
+      font-size: 14px;
+    }
+
+    .section-title { font-size: 0.75rem; font-weight: 600; color: #6366f1; text-transform: uppercase; letter-spacing: 0.08em; margin: 14px 0 8px; }
+
+    .color-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .color-btn {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.1s;
+    }
+    .color-btn.active { border-color: #fff; transform: scale(1.2); }
+    .color-btn[data-color="none"] { background: linear-gradient(135deg, #333 50%, #555 50%); }
+
+    .url-row { display: flex; gap: 6px; margin-bottom: 12px; }
+    .url-row input {
+      flex: 1;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: #fff;
+      font-size: 0.8rem;
+    }
+    .url-row input:focus { outline: none; border-color: #6366f1; }
+
+    .panel-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(99,102,241,0.3);
+      color: #fff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .panel-btn:hover { background: rgba(99,102,241,0.6); }
+
+    .action-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+
+    /* UI Buttons */
+    .ui-controls {
+      position: fixed;
+      top: 12px; right: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 200;
+    }
+    .ui-btn {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(10,10,20,0.7);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .ui-btn:hover { background: rgba(99,102,241,0.5); }
+    .ui-btn.active { background: rgba(99,102,241,0.7); }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 20px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(10,10,20,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 999;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.error { border-color: #ef4444; color: #fca5a5; }
+    #toast.success { border-color: #22c55e; color: #86efac; }
+
+    /* Loading */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    #loading-overlay.active { opacity: 1; pointer-events: auto; }
+    .loader-text { color: #fff; font-size: 0.9rem; font-family: sans-serif; }
+
+    #btn-install { display: none; }
+    #btn-install.show { display: flex; }
+  </style>
+</head>
+<body>
+
+  <!-- Background elements required by the script -->
+  <img id="custom-bg" src="https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=1920&q=80" alt="background" crossorigin="anonymous" />
+  <video id="custom-video" loop muted playsinline></video>
+  <canvas id="bg-canvas"></canvas>
+  <div id="color-overlay"></div>
+
+  <!-- UI Buttons -->
+  <div class="ui-controls">
+    <button class="ui-btn" id="btn-sound" title="Sound" aria-pressed="true">🔊</button>
+    <button class="ui-btn" id="btn-fullscreen" title="Fullscreen" aria-label="Enter fullscreen mode">⛶</button>
+    <button class="ui-btn" id="btn-settings" title="Settings" aria-expanded="false">⚙</button>
+    <button class="ui-btn" id="btn-install" title="Install App">⬇</button>
+  </div>
+
+  <!-- Settings Panel -->
+  <div id="panel" role="dialog" aria-modal="true" aria-label="Settings" aria-hidden="true">
+    <div class="panel-header">
+      <h2>Background Settings</h2>
+      <button id="panel-close" aria-label="Close panel">✕</button>
+    </div>
+
+    <div class="section-title">Presets</div>
+    <div class="preset-grid" id="preset-grid" role="listbox" aria-label="Background presets"></div>
+
+    <div class="section-title">Blur</div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Blur</span><span id="blur-val">5px</span></div>
+      <input type="range" id="blur-range" min="0" max="25" value="5" />
+    </div>
+
+    <div class="section-title">Brightness</div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Brightness</span><span id="brightness-val">30%</span></div>
+      <input type="range" id="brightness-range" min="20" max="120" value="30" />
+    </div>
+
+    <div class="section-title">Rain Intensity</div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Rain</span><span id="rain-val">70%</span></div>
+      <input type="range" id="rain-range" min="20" max="100" value="70" />
+    </div>
+
+    <div class="section-title">Color Overlay</div>
+    <div class="color-row">
+      <button class="color-btn active" data-color="none" title="No overlay" aria-checked="true" style="background:linear-gradient(135deg,#333 50%,#555 50%)"></button>
+      <button class="color-btn" data-color="#1e3a5f" title="Blue" aria-checked="false" style="background:#1e3a5f"></button>
+      <button class="color-btn" data-color="#1a3a1a" title="Green" aria-checked="false" style="background:#1a3a1a"></button>
+      <button class="color-btn" data-color="#3a1a1a" title="Red" aria-checked="false" style="background:#3a1a1a"></button>
+      <button class="color-btn" data-color="#2a1a3a" title="Purple" aria-checked="false" style="background:#2a1a3a"></button>
+      <button class="color-btn" data-color="#3a2a10" title="Warm" aria-checked="false" style="background:#3a2a10"></button>
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Opacity</span><span id="overlay-val">0%</span></div>
+      <input type="range" id="overlay-range" min="0" max="80" value="0" />
+    </div>
+
+    <div class="section-title">Volume</div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Volume</span><span id="volume-val">50%</span></div>
+      <input type="range" id="volume-range" min="0" max="100" value="50" />
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="font-size:0.8rem;color:#aaa;">Sound</span>
+      <button id="sound-toggle" style="background:none;border:none;color:#fff;font-size:1.1rem;cursor:pointer;" aria-pressed="true">🔊</button>
+    </div>
+
+    <div class="section-title">Custom Background</div>
+    <div class="url-row">
+      <input type="text" id="url-input" placeholder="Paste image or video URL..." />
+      <button class="panel-btn" id="url-btn">Load</button>
+    </div>
+    <div class="url-row">
+      <button class="panel-btn" id="file-btn" style="width:100%">📁 Upload File</button>
+      <input type="file" id="file-input" accept="image/*,video/*" style="display:none" />
+    </div>
+
+    <div class="action-row">
+      <button class="panel-btn" id="btn-share">🔗 Share</button>
+      <button class="panel-btn" id="btn-save">💾 Save</button>
+      <button class="panel-btn" id="btn-reset">↩ Reset</button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" role="alert" aria-live="polite"></div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" aria-live="polite" aria-atomic="true">
+    <span class="loader-text">Loading...</span>
+  </div>
+
+  <!-- Ambient Rain Audio -->
+  <audio id="rain-audio" loop preload="none">
+    <source src="https://cdn.pixabay.com/audio/2022/03/10/audio_655f9a9b9e.mp3" type="audio/mpeg" />
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg" />
+  </audio>
+
+  <script>
+// =====================================================================
+// GLOBAL ERROR HANDLING (Error Boundary)
+// =====================================================================
+(function () {
+  let errorCount = 0;
+  const MAX_ERRORS = 5;
+  const ERROR_RESET_TIME = 60000;
+
+  setInterval(() => {
+    errorCount = 0;
+  }, ERROR_RESET_TIME);
+
+  window.addEventListener("error", (event) => {
+    errorCount++;
+    if (errorCount <= MAX_ERRORS) {
+      console.error("Application Error:", {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error
+      });
+      if (event.error && event.error.stack) {
+        const toastEl = document.getElementById("toast");
+        if (toastEl) {
+          showErrorToast("An error occurred. The page can be refreshed.");
+        }
+      }
+    }
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    errorCount++;
+    if (errorCount <= MAX_ERRORS) {
+      console.error("Unhandled Promise Error:", event.reason);
+      const toastEl = document.getElementById("toast");
+      if (toastEl) {
+        showErrorToast("An operation failed.");
+      }
+    }
+  });
+
+  window.showErrorToast = function (message) {
+    const toast = document.getElementById("toast");
+    if (toast && typeof showToast === "function") {
+      showToast("⚠️ " + message, "error");
+    } else if (toast) {
+      toast.textContent = "⚠️ " + message;
+      toast.className = "toast show error";
+      setTimeout(() => {
+        toast.classList.remove("show", "error");
+      }, 3000);
+    }
+  };
+
+  window.addEventListener("load", () => {
+    const criticalElements = ["bg-canvas", "custom-bg", "panel", "rain-audio"];
+    const missing = criticalElements.filter(
+      (id) => !document.getElementById(id)
+    );
+    if (missing.length > 0) {
+      console.error("Critical elements are missing:", missing);
+    }
+  });
+})();
+
+// =====================================================================
+// RAINDROPS.JS LOADER & INITIALIZER
+// =====================================================================
+let raindropInstance = null;
+let raindropsInitialized = false;
+let raindropsRetryCount = 0;
+const MAX_RAINDROPS_RETRY = 10;
+
+function loadRaindrops() {
+  return new Promise((resolve, reject) => {
+    const sources = [
+      "https://fyildiz1974.github.io/web/files/raindrops.js",
+      "https://fthyldz.com/bio/js/raindrops.js"
+    ];
+
+    let currentIndex = 0;
+
+    function tryLoadScript() {
+      if (currentIndex >= sources.length) {
+        reject(new Error("Raindrops.js could not be loaded"));
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = sources[currentIndex];
+
+      script.onload = () => {
+        console.log("✓ Raindrops.js loaded:", sources[currentIndex]);
+        setTimeout(resolve, 100);
+      };
+
+      script.onerror = () => {
+        console.warn("Raindrops source failed:", sources[currentIndex]);
+        currentIndex++;
+        tryLoadScript();
+      };
+
+      document.head.appendChild(script);
+    }
+
+    tryLoadScript();
+  });
+}
+
+function initRaindrops() {
+  if (raindropsInitialized && raindropInstance) {
+    return raindropInstance;
+  }
+
+  const canvas = document.getElementById("bg-canvas");
+  const bg = document.getElementById("custom-bg");
+
+  if (!canvas || !bg) {
+    console.error("Canvas or background element not found");
+    return null;
+  }
+
+  if (typeof Raindrops === "undefined") {
+    raindropsRetryCount++;
+
+    if (raindropsRetryCount >= MAX_RAINDROPS_RETRY) {
+      console.log("Raindrops: Maximum retry limit exceeded");
+      return null;
+    }
+
+    if (raindropsRetryCount <= 2) {
+      console.log("Waiting for Raindrops... (" + raindropsRetryCount + "/" + MAX_RAINDROPS_RETRY + ")");
+    }
+
+    setTimeout(initRaindrops, 300);
+    return null;
+  }
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  if (!bg.complete || bg.naturalWidth === 0) {
+    bg.addEventListener("load", () => {
+      if (!raindropsInitialized) {
+        initRaindrops();
+      }
+    }, { once: true });
+    return null;
+  }
+
+  try {
+    if (raindropInstance && typeof raindropInstance.destroy === "function") {
+      raindropInstance.destroy();
+    }
+
+    raindropInstance = new Raindrops(canvas, canvas.width, canvas.height, {
+      renderDropsOnTop: true,
+      brightness: 1.04,
+      alphaMultiply: 6,
+      alphaSubtract: 3,
+      minR: 10,
+      maxR: 40,
+      rainChance: 0.35,
+      rainLimit: 6,
+      dropletsRate: 50,
+      dropletsSize: [3, 5.5],
+      trailRate: 1,
+      trailScaleRange: [0.2, 0.45],
+      fg: bg,
+      bg: bg
+    });
+
+    raindropsInitialized = true;
+    raindropsRetryCount = 0;
+    console.log("✓ Raindrops successfully initialized");
+    return raindropInstance;
+  } catch (e) {
+    console.error("Raindrops initialization error:", e.message);
+    raindropsInitialized = true;
+    return null;
+  }
+}
+
+// =====================================================================
+// UTILITY FUNCTIONS
+// =====================================================================
+function throttle(func, limit) {
+  let inThrottle;
+  return function (...args) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
+
+function debounce(func, wait) {
+  let timeout;
+  return function (...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
+function isValidUrl(string) {
+  if (!string || typeof string !== "string") return false;
+  try {
+    const url = new URL(string);
+    return ["http:", "https:"].includes(url.protocol);
+  } catch { return false; }
+}
+
+function sanitizeUrl(url) {
+  if (!isValidUrl(url)) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.href;
+  } catch { return null; }
+}
+
+// =====================================================================
+// DEVICE DETECTION
+// =====================================================================
+const DeviceInfo = {
+  isMobile: function () {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+  },
+  isIOS: function () {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent);
+  },
+  getMaxBlur: function () {
+    return this.isMobile() ? 15 : 25;
+  }
+};
+
+// =====================================================================
+// FULLSCREEN API
+// =====================================================================
+const FullscreenAPI = {
+  isFullscreen: function () {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+  },
+  enter: function (element) {
+    element = element || document.documentElement;
+    const requestMethod = element.requestFullscreen || element.webkitRequestFullscreen || element.mozRequestFullScreen || element.msRequestFullscreen;
+    if (!requestMethod) return Promise.reject(new Error("Not supported"));
+    try {
+      const result = requestMethod.call(element);
+      if (result && typeof result.then === "function") {
+        return result.catch(function (err) { console.warn("Fullscreen error:", err.message); });
+      }
+      return Promise.resolve();
+    } catch (err) { return Promise.reject(err); }
+  },
+  exit: function () {
+    const exitMethod = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (exitMethod && this.isFullscreen()) {
+      try {
+        const result = exitMethod.call(document);
+        if (result && typeof result.then === "function") return result.catch(function (err) { console.warn("Fullscreen exit error:", err.message); });
+        return Promise.resolve();
+      } catch (err) { return Promise.reject(err); }
+    }
+    return Promise.resolve();
+  },
+  toggle: function () { return this.isFullscreen() ? this.exit() : this.enter(); },
+  updateButtonIcon: function (isFullscreen) {
+    const btn = document.getElementById("btn-fullscreen");
+    if (!btn) return;
+    while (btn.firstChild) btn.removeChild(btn.firstChild);
+    btn.appendChild(document.createTextNode(isFullscreen ? "✕" : "⛶"));
+    btn.setAttribute("aria-label", isFullscreen ? "Exit fullscreen" : "Enter fullscreen mode");
+    btn.title = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
+    btn.classList.toggle("active", isFullscreen);
+  },
+  init: function () {
+    const self = this;
+    ["fullscreenchange","webkitfullscreenchange","mozfullscreenchange","MSFullscreenChange"].forEach(function (ev) {
+      document.addEventListener(ev, function () { self.updateButtonIcon(self.isFullscreen()); }, false);
+    });
+  }
+};
+
+// =====================================================================
+// AUDIO MANAGER
+// =====================================================================
+const AudioManager = {
+  audio: null,
+  sources: [],
+  currentSourceIndex: 0,
+  allSourcesFailed: false,
+  loadAttempts: 0,
+  maxLoadAttempts: 3,
+  init: function (audioElement) {
+    this.audio = audioElement;
+    this.sources = Array.from(audioElement.querySelectorAll("source")).map(s => s.src);
+    this.setupEventListeners();
+  },
+  setupEventListeners: function () {
+    const self = this;
+    this.audio.addEventListener("error", function () { self.tryNextSource(); }, true);
+    this.audio.addEventListener("loadeddata", function () { self.loadAttempts = 0; self.allSourcesFailed = false; });
+  },
+  tryNextSource: function () {
+    this.loadAttempts++;
+    if (this.loadAttempts > this.maxLoadAttempts) { this.currentSourceIndex++; this.loadAttempts = 0; }
+    if (this.currentSourceIndex >= this.sources.length) {
+      if (!this.allSourcesFailed) {
+        this.allSourcesFailed = true;
+        console.error("All audio sources failed");
+      }
+      return;
+    }
+    this.audio.src = this.sources[this.currentSourceIndex];
+    this.audio.load();
+  },
+  play: function () {
+    if (this.allSourcesFailed) return Promise.reject(new Error("All audio sources failed"));
+    return this.audio.play();
+  },
+  pause: function () { this.audio.pause(); },
+  setVolume: function (volume) { this.audio.volume = Math.max(0, Math.min(1, volume)); },
+  isReady: function () { return !this.allSourcesFailed && this.audio.readyState >= 2; }
+};
+
+// =====================================================================
+// RESOURCE MANAGER
+// =====================================================================
+const ResourceManager = {
+  blobUrls: new Set(),
+  revokeAllBlobUrls: function () {
+    this.blobUrls.forEach(url => URL.revokeObjectURL(url));
+    this.blobUrls.clear();
+  },
+  createBlobUrl: function (blob) {
+    const url = URL.createObjectURL(blob);
+    this.blobUrls.add(url);
+    return url;
+  },
+  cleanup: function () {
+    this.revokeAllBlobUrls();
+    if (raindropInstance && typeof raindropInstance.destroy === "function") {
+      raindropInstance.destroy();
+      raindropInstance = null;
+    }
+  }
+};
+
+// =====================================================================
+// LOADING CONTROLLER
+// =====================================================================
+const LoadingController = {
+  currentLoadId: null,
+  startLoading: function () {
+    const loadId = Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+    this.currentLoadId = loadId;
+    return loadId;
+  },
+  isCurrentLoading: function (loadId) { return this.currentLoadId === loadId; },
+  cancelAll: function () { this.currentLoadId = null; }
+};
+
+// =====================================================================
+// PWA MANAGER
+// =====================================================================
+const PWAManager = {
+  deferredPrompt: null,
+  installButton: null,
+  init: function () {
+    this.installButton = document.getElementById("btn-install");
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(err => console.warn("ServiceWorker failed:", err));
+      });
+    }
+    const self = this;
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      self.deferredPrompt = e;
+      if (self.installButton) self.installButton.classList.add("show");
+    });
+    if (this.installButton) {
+      this.installButton.addEventListener("click", () => self.promptInstall());
+    }
+    window.addEventListener("appinstalled", () => {
+      self.deferredPrompt = null;
+      if (self.installButton) self.installButton.classList.remove("show");
+      showToast("✓ App added to home screen!", "success");
+    });
+  },
+  promptInstall: async function () {
+    if (!this.deferredPrompt) { showToast("ℹ️ App is already installed or not supported", "info"); return; }
+    this.deferredPrompt.prompt();
+    const { outcome } = await this.deferredPrompt.userChoice;
+    if (outcome === "accepted") showToast("✓ Installing app...", "success");
+    this.deferredPrompt = null;
+  }
+};
+
+// =====================================================================
+// PRESETS
+// =====================================================================
+const PRESETS = [
+  { type: "image", label: "City", url: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=1920&q=80", thumb: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=300&q=60" },
+  { type: "image", label: "Forest", url: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80", thumb: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=300&q=60" },
+  { type: "image", label: "Mountain", url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80", thumb: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=300&q=60" },
+  { type: "image", label: "Towers", url: "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1920&q=80", thumb: "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=300&q=60" },
+  { type: "image", label: "Future", url: "https://images.unsplash.com/photo-1494522855154-9297ac14b55f?w=1920&q=80", thumb: "https://images.unsplash.com/photo-1494522855154-9297ac14b55f?w=300&q=60" },
+  { type: "image", label: "Sky", url: "https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=1920&q=80", thumb: "https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=300&q=60" },
+  { type: "video", label: "Hurricane", url: "https://cdn.pixabay.com/video/2019/03/18/22070-325253460_large.mp4", thumb: "https://cdn.pixabay.com/video/2019/03/18/22070-325253460_tiny.jpg" },
+  { type: "video", label: "River", url: "https://cdn.pixabay.com/video/2020/12/01/58020-486900427_large.mp4", thumb: "https://cdn.pixabay.com/video/2020/12/01/58020-486900427_tiny.jpg" },
+  { type: "video", label: "Beach", url: "https://videos.pexels.com/video-files/2439510/2439510-hd_1920_1080_30fps.mp4", thumb: "https://images.pexels.com/videos/2439510/free-video-2439510.jpg?auto=compress&cs=tinysrgb&w=300&h=200&dpr=1" }
+];
+
+// =====================================================================
+// STATE
+// =====================================================================
+const DEFAULT_STATE = {
+  blur: 5, brightness: 30, rain: 70,
+  overlayColor: "none", overlayOpacity: 0,
+  volume: 50, soundOn: true,
+  currentType: "image", currentUrl: PRESETS[0].url, currentPresetIndex: 0
+};
+
+let state = new Proxy({ ...DEFAULT_STATE }, {
+  set(target, property, value) {
+    const oldValue = target[property];
+    if (property === "blur") { value = Math.min(value, DeviceInfo.getMaxBlur()); }
+    target[property] = value;
+    if (oldValue !== value) {
+      const visualProperties = ["blur", "brightness", "rain", "overlayColor", "overlayOpacity"];
+      if (visualProperties.includes(property) && typeof updateFilters === "function") { updateFilters(); }
+    }
+    return true;
+  },
+  get(target, property) { return target[property]; }
+});
+
+// =====================================================================
+// DOM ELEMENTS
+// =====================================================================
+const customBg = document.getElementById("custom-bg");
+const customVideo = document.getElementById("custom-video");
+const colorOverlay = document.getElementById("color-overlay");
+const canvas = document.getElementById("bg-canvas");
+const panel = document.getElementById("panel");
+const presetGrid = document.getElementById("preset-grid");
+const rainAudio = document.getElementById("rain-audio");
+const toast = document.getElementById("toast");
+const soundToggleIcon = document.getElementById("sound-toggle");
+const soundBtn = document.getElementById("btn-sound");
+const loadingOverlay = document.getElementById("loading-overlay");
+const settingsBtn = document.getElementById("btn-settings");
+
+// =====================================================================
+// HELPERS
+// =====================================================================
+function showToast(message, type = "info") {
+  toast.textContent = message;
+  toast.className = "toast show";
+  if (type === "error") toast.classList.add("error");
+  if (type === "success") toast.classList.add("success");
+  setTimeout(() => toast.classList.remove("show", "error", "success"), 2500);
+}
+
+function showLoader(text = "Loading...") {
+  loadingOverlay.querySelector(".loader-text").textContent = text;
+  loadingOverlay.classList.add("active");
+}
+
+function hideLoader() { loadingOverlay.classList.remove("active"); }
+function isVideoUrl(url) { return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url); }
+function cleanupBlobUrl() { ResourceManager.revokeAllBlobUrls(); }
+
+const updateFilters = throttle(function () {
+  const filter = `blur(${state.blur}px) brightness(${state.brightness / 100})`;
+  customBg.style.filter = filter;
+  customVideo.style.filter = filter;
+  canvas.style.opacity = state.rain / 100;
+  if (state.overlayColor !== "none" && state.overlayOpacity > 0) {
+    colorOverlay.style.backgroundColor = state.overlayColor;
+    colorOverlay.style.opacity = state.overlayOpacity / 100;
+  } else {
+    colorOverlay.style.opacity = 0;
+  }
+}, 16);
+
+function setBackground(url, type = "image", presetIndex = -1) {
+  LoadingController.cancelAll();
+  const loadId = LoadingController.startLoading();
+  state.currentType = type;
+  state.currentUrl = url;
+  state.currentPresetIndex = presetIndex;
+
+  if (presetIndex === -1) {
+    document.querySelectorAll(".preset-item").forEach(el => el.classList.remove("active"));
+  }
+
+  if (type === "video") {
+    showLoader("Loading video...");
+    customBg.style.display = "none";
+    customVideo.style.display = "block";
+    customVideo.muted = true;
+    customVideo.loop = true;
+    customVideo.playsInline = true;
+    customVideo.pause();
+    customVideo.removeAttribute("src");
+    customVideo.load();
+    customVideo.src = url;
+
+    const playVideo = () => {
+      if (!LoadingController.isCurrentLoading(loadId)) return;
+      const playPromise = customVideo.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => { if (LoadingController.isCurrentLoading(loadId)) hideLoader(); })
+          .catch(error => {
+            if (!LoadingController.isCurrentLoading(loadId)) return;
+            hideLoader();
+            if (error.name === "NotAllowedError") {
+              showToast("🎬 Tap the screen to start the video", "info");
+              document.addEventListener("click", () => customVideo.play().catch(() => {}), { once: true });
+            } else {
+              showToast("❌ Video could not be played", "error");
+            }
+          });
+      }
+    };
+
+    if (customVideo.readyState >= 3) { playVideo(); }
+    else { customVideo.addEventListener("canplay", playVideo, { once: true }); }
+  } else {
+    showLoader("Loading image...");
+    customVideo.pause();
+    customVideo.style.display = "none";
+    customBg.style.display = "block";
+
+    customBg.onload = () => {
+      if (LoadingController.isCurrentLoading(loadId)) {
+        hideLoader();
+        if (!raindropsInitialized && typeof initRaindrops === "function") setTimeout(() => initRaindrops(), 100);
+      }
+    };
+    customBg.onerror = () => {
+      if (LoadingController.isCurrentLoading(loadId)) {
+        hideLoader();
+        showToast("❌ Image could not be loaded", "error");
+      }
+    };
+    customBg.src = url;
+    if (customBg.complete) customBg.onload();
+  }
+
+  updateFilters();
+}
+
+function syncSoundUI() {
+  const isOn = state.soundOn;
+  soundBtn.classList.toggle("active", isOn);
+  soundBtn.textContent = isOn ? "🔊" : "🔇";
+  soundBtn.setAttribute("aria-pressed", isOn);
+  soundToggleIcon.textContent = isOn ? "🔊" : "🔇";
+  soundToggleIcon.setAttribute("aria-pressed", isOn);
+}
+
+function setSound(on) {
+  state.soundOn = !!on;
+  syncSoundUI();
+  if (state.soundOn) {
+    AudioManager.setVolume(state.volume / 100);
+    AudioManager.play().catch(() => {
+      state.soundOn = false;
+      syncSoundUI();
+      showToast("🔇 Autoplay blocked — click to enable", "info");
+    });
+  } else {
+    AudioManager.pause();
+  }
+}
+
+function saveToLocalStorage() {
+  try {
+    localStorage.setItem("rainSettings", JSON.stringify({
+      blur: state.blur, brightness: state.brightness, rain: state.rain,
+      overlayColor: state.overlayColor, overlayOpacity: state.overlayOpacity,
+      volume: state.volume, soundOn: state.soundOn,
+      currentPresetIndex: state.currentPresetIndex, savedAt: Date.now()
+    }));
+    showToast("✓ Settings saved", "success");
+    return true;
+  } catch (e) {
+    showToast("❌ Settings could not be saved", "error");
+    return false;
+  }
+}
+
+function loadFromLocalStorage() {
+  try {
+    const saved = localStorage.getItem("rainSettings");
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (typeof data !== "object" || data === null) { localStorage.removeItem("rainSettings"); return false; }
+      const maxBlur = DeviceInfo.getMaxBlur();
+      state.blur = Math.min(maxBlur, Math.max(0, parseInt(data.blur) || DEFAULT_STATE.blur));
+      state.brightness = Math.min(120, Math.max(20, parseInt(data.brightness) || DEFAULT_STATE.brightness));
+      state.rain = Math.min(100, Math.max(20, parseInt(data.rain) || DEFAULT_STATE.rain));
+      state.volume = Math.min(100, Math.max(0, parseInt(data.volume) || DEFAULT_STATE.volume));
+      state.overlayOpacity = Math.min(80, Math.max(0, parseInt(data.overlayOpacity) || DEFAULT_STATE.overlayOpacity));
+      state.overlayColor = data.overlayColor || DEFAULT_STATE.overlayColor;
+      state.soundOn = typeof data.soundOn === "boolean" ? data.soundOn : DEFAULT_STATE.soundOn;
+      state.currentPresetIndex = data.currentPresetIndex ?? DEFAULT_STATE.currentPresetIndex;
+      if (state.currentPresetIndex >= 0 && state.currentPresetIndex < PRESETS.length) {
+        state.currentUrl = PRESETS[state.currentPresetIndex].url;
+        state.currentType = PRESETS[state.currentPresetIndex].type;
+      } else {
+        state.currentPresetIndex = 0;
+        state.currentUrl = PRESETS[0].url;
+        state.currentType = PRESETS[0].type;
+      }
+      return true;
+    }
+  } catch (e) {
+    console.warn("localStorage read error:", e);
+    try { localStorage.removeItem("rainSettings"); } catch {}
+  }
+  return false;
+}
+
+function resetToDefaults() {
+  Object.keys(DEFAULT_STATE).forEach(key => { state[key] = DEFAULT_STATE[key]; });
+  const filter = `blur(${state.blur}px) brightness(${state.brightness / 100})`;
+  customBg.style.filter = filter;
+  customVideo.style.filter = filter;
+  canvas.style.opacity = state.rain / 100;
+  colorOverlay.style.opacity = 0;
+  applyStateToUI();
+  document.querySelectorAll(".preset-item").forEach((el, i) => el.classList.toggle("active", i === 0));
+  try { localStorage.removeItem("rainSettings"); } catch {}
+  setBackground(PRESETS[0].url, PRESETS[0].type, 0);
+  AudioManager.setVolume(state.volume / 100);
+  setSound(state.soundOn);
+  showToast("✓ Reset to defaults", "success");
+}
+
+function applyStateToUI() {
+  const maxBlur = DeviceInfo.getMaxBlur();
+  const blurRange = document.getElementById("blur-range");
+  blurRange.max = maxBlur;
+  blurRange.value = state.blur;
+  document.getElementById("blur-val").textContent = state.blur + "px";
+  document.getElementById("brightness-range").value = state.brightness;
+  document.getElementById("brightness-val").textContent = state.brightness + "%";
+  document.getElementById("rain-range").value = state.rain;
+  document.getElementById("rain-val").textContent = state.rain + "%";
+  document.getElementById("overlay-range").value = state.overlayOpacity;
+  document.getElementById("overlay-val").textContent = state.overlayOpacity + "%";
+  document.getElementById("volume-range").value = state.volume;
+  document.getElementById("volume-val").textContent = state.volume + "%";
+  document.querySelectorAll(".color-btn").forEach(btn => {
+    const isActive = btn.dataset.color === state.overlayColor;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-checked", isActive);
+  });
+  updateFilters();
+  syncSoundUI();
+  AudioManager.setVolume(state.volume / 100);
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => showToast("✓ Link copied!", "success")).catch(() => {
+      const input = document.createElement("input");
+      input.value = text;
+      document.body.appendChild(input);
+      input.select();
+      try { document.execCommand("copy"); showToast("✓ Link copied!", "success"); } catch { showToast("❌ Copy failed", "error"); }
+      document.body.removeChild(input);
+    });
+  }
+}
+
+function togglePanel(forceState) {
+  const shouldOpen = typeof forceState === "boolean" ? forceState : !panel.classList.contains("open");
+  if (shouldOpen) {
+    panel.classList.add("open");
+    panel.setAttribute("aria-hidden", "false");
+    settingsBtn.setAttribute("aria-expanded", "true");
+  } else {
+    panel.classList.remove("open");
+    panel.setAttribute("aria-hidden", "true");
+    settingsBtn.setAttribute("aria-expanded", "false");
+  }
+}
+
+function createPresets() {
+  PRESETS.forEach((preset, index) => {
+    const item = document.createElement("div");
+    item.className = "preset-item" + (index === state.currentPresetIndex ? " active" : "") + (preset.type === "video" ? " video" : "");
+    item.dataset.label = preset.label;
+    item.dataset.index = index;
+    item.style.backgroundImage = `url(${preset.thumb})`;
+    item.setAttribute("role", "option");
+    item.setAttribute("aria-selected", index === state.currentPresetIndex);
+    item.setAttribute("tabindex", "0");
+
+    const selectPreset = () => {
+      document.querySelectorAll(".preset-item").forEach(el => { el.classList.remove("active"); el.setAttribute("aria-selected", "false"); });
+      item.classList.add("active");
+      item.setAttribute("aria-selected", "true");
+      cleanupBlobUrl();
+      setBackground(preset.url, preset.type, index);
+    };
+
+    item.addEventListener("click", selectPreset);
+    presetGrid.appendChild(item);
+  });
+}
+
+function setupSlider(id, stateKey, suffix) {
+  const slider = document.getElementById(id + "-range");
+  const display = document.getElementById(id + "-val");
+  slider.addEventListener("input", (e) => {
+    state[stateKey] = parseInt(e.target.value);
+    display.textContent = state[stateKey] + suffix;
+    updateFilters();
+  });
+}
+
+// =====================================================================
+// MAIN
+// =====================================================================
+document.addEventListener("DOMContentLoaded", () => {
+  AudioManager.init(rainAudio);
+  PWAManager.init();
+  loadFromLocalStorage();
+
+  const blurSlider = document.getElementById("blur-range");
+  blurSlider.max = DeviceInfo.getMaxBlur();
+
+  createPresets();
+  applyStateToUI();
+
+  if (state.currentPresetIndex >= 0 && state.currentPresetIndex < PRESETS.length) {
+    setBackground(PRESETS[state.currentPresetIndex].url, PRESETS[state.currentPresetIndex].type, state.currentPresetIndex);
+  }
+
+  loadRaindrops().then(() => {
+    setTimeout(() => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initRaindrops();
+    }, 500);
+  }).catch(err => { console.warn("Raindrops.js could not be loaded:", err); });
+
+  setupSlider("blur", "blur", "px");
+  setupSlider("brightness", "brightness", "%");
+  setupSlider("rain", "rain", "%");
+  setupSlider("overlay", "overlayOpacity", "%");
+
+  document.getElementById("volume-range").addEventListener("input", (e) => {
+    state.volume = parseInt(e.target.value);
+    document.getElementById("volume-val").textContent = state.volume + "%";
+    AudioManager.setVolume(state.volume / 100);
+  });
+
+  setSound(true);
+
+  const retryAudioOnce = () => {
+    if (!state.soundOn) setSound(true);
+    window.removeEventListener("pointerdown", retryAudioOnce);
+  };
+  window.addEventListener("pointerdown", retryAudioOnce, { once: true });
+
+  settingsBtn.addEventListener("click", (e) => { e.stopPropagation(); togglePanel(); });
+  document.getElementById("panel-close").addEventListener("click", () => togglePanel(false));
+
+  document.addEventListener("click", (e) => {
+    if (window.innerWidth > 480 && !panel.contains(e.target) && !e.target.closest(".ui-btn") && panel.classList.contains("open")) {
+      togglePanel(false);
+    }
+  });
+
+  document.querySelectorAll(".color-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".color-btn").forEach(b => { b.classList.remove("active"); b.setAttribute("aria-checked", "false"); });
+      btn.classList.add("active");
+      btn.setAttribute("aria-checked", "true");
+      state.overlayColor = btn.dataset.color;
+      if (state.overlayColor === "none") {
+        state.overlayOpacity = 0;
+        document.getElementById("overlay-range").value = 0;
+        document.getElementById("overlay-val").textContent = "0%";
+      } else if (state.overlayOpacity === 0) {
+        state.overlayOpacity = 30;
+        document.getElementById("overlay-range").value = 30;
+        document.getElementById("overlay-val").textContent = "30%";
+      }
+      updateFilters();
+    });
+  });
+
+  document.getElementById("url-btn").addEventListener("click", () => {
+    const rawUrl = document.getElementById("url-input").value.trim();
+    if (!rawUrl) { showToast("❌ Please enter a URL", "error"); return; }
+    const safeUrl = sanitizeUrl(rawUrl);
+    if (!safeUrl) { showToast("❌ Invalid or unsafe URL", "error"); return; }
+    cleanupBlobUrl();
+    const type = isVideoUrl(safeUrl) ? "video" : "image";
+    setBackground(safeUrl, type, -1);
+    document.getElementById("url-input").value = "";
+    showToast(type === "video" ? "✓ Video loaded" : "✓ Image loaded", "success");
+  });
+
+  document.getElementById("url-input").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") document.getElementById("url-btn").click();
+  });
+
+  document.getElementById("file-btn").addEventListener("click", () => document.getElementById("file-input").click());
+  document.getElementById("file-input").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) { showToast("❌ File is too large (max 50MB)", "error"); return; }
+      cleanupBlobUrl();
+      const blobUrl = ResourceManager.createBlobUrl(file);
+      const type = file.type.startsWith("video/") ? "video" : "image";
+      setBackground(blobUrl, type, -1);
+      showToast(type === "video" ? "✓ Video loaded" : "✓ Image loaded", "success");
+    }
+    e.target.value = "";
+  });
+
+  soundBtn.addEventListener("click", () => setSound(!state.soundOn));
+  soundToggleIcon.addEventListener("click", () => setSound(!state.soundOn));
+
+  document.getElementById("btn-share").addEventListener("click", () => {
+    copyToClipboard(window.location.href);
+  });
+
+  document.getElementById("btn-save").addEventListener("click", saveToLocalStorage);
+  document.getElementById("btn-reset").addEventListener("click", () => {
+    if (confirm("Reset all settings to defaults?")) resetToDefaults();
+  });
+
+  FullscreenAPI.init();
+  const fullscreenBtn = document.getElementById("btn-fullscreen");
+  if (fullscreenBtn) fullscreenBtn.addEventListener("click", (e) => { e.preventDefault(); FullscreenAPI.toggle(); });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (e.key === "Escape") togglePanel(false);
+    if (e.key === "s" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); setSound(!state.soundOn); }
+    if (e.key === "f" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); FullscreenAPI.toggle(); }
+    if (e.key === "p" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); togglePanel(); }
+  });
+
+  window.addEventListener("beforeunload", () => ResourceManager.cleanup());
+
+  const handleResize = debounce(() => {
+    if (raindropInstance) {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      try {
+        if (typeof raindropInstance.resize === "function") raindropInstance.resize();
+        else initRaindrops();
+      } catch { initRaindrops(); }
+    }
+  }, 250);
+
+  window.addEventListener("resize", handleResize);
+});
+  </script>
+</body>
+</html>

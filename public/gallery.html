@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gallery - Stress Sharing Platform</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    /* Lightbox */
+    #lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(20px);
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    #lightbox.active {
+      opacity: 1;
+    }
+
+    #lightbox-img {
+      max-width: 85vw;
+      max-height: 80vh;
+      border-radius: 16px;
+      box-shadow: 0 0 80px rgba(99, 102, 241, 0.3);
+      object-fit: contain;
+      transition: transform 0.3s ease;
+    }
+
+    #lightbox.active #lightbox-img {
+      transform: scale(1);
+    }
+
+    #close-btn {
+      position: absolute;
+      top: 24px;
+      right: 28px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.2s;
+      z-index: 110;
+    }
+
+    #close-btn:hover {
+      background: rgba(239, 68, 68, 0.5);
+      transform: scale(1.1);
+    }
+
+    /* Title Overlay */
+    .title-overlay {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .title-overlay h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #6366f1, #a78bfa, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: none;
+    }
+
+    .title-overlay p {
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 4px;
+      letter-spacing: 0.08em;
+    }
+
+    /* Instructions */
+    .instructions {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      display: flex;
+      gap: 20px;
+      pointer-events: none;
+    }
+
+    .instructions span {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.3);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .instructions span::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.6);
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Title -->
+  <div class="title-overlay">
+    <h1>Inspiration Gallery</h1>
+    <p>Hover & click to explore • Drag to orbit</p>
+  </div>
+
+  <!-- Instructions -->
+  <div class="instructions">
+    <span>Scroll to zoom</span>
+    <span>Drag to rotate</span>
+    <span>Click a tile</span>
+  </div>
+
+  <!-- Lightbox -->
+  <div id="lightbox">
+    <button id="close-btn" aria-label="Close">✕</button>
+    <img id="lightbox-img" src="" alt="Gallery fullscreen" />
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // === 1. SCENE SETUP ===
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
+    camera.position.set(0, 100, 120);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 50;
+    controls.maxDistance = 500;
+    controls.maxPolarAngle = Math.PI / 2;
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    dirLight.position.set(20, 80, 50);
+    scene.add(dirLight);
+
+    // === 2. CUBE GENERATION ===
+    const cols = 12;
+    const rows = 8;
+    const cubeSize = 10;
+    const gap = 0.5;
+    const step = cubeSize + gap;
+
+    const gridWidth = cols * step - gap;
+    const gridDepth = rows * step - gap;
+    const startX = -gridWidth / 2 + cubeSize / 2;
+    const startZ = -gridDepth / 2 + cubeSize / 2;
+
+    const cubes = [];
+
+    const textureLoader = new THREE.TextureLoader();
+    const sideMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+
+        const seed = `img_${i}_${j}`;
+        const thumbUrl = `https://picsum.photos/seed/${seed}/200/200`;
+        const fullUrl = `https://picsum.photos/seed/${seed}/1200/800`;
+
+        const texture = textureLoader.load(thumbUrl);
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+        const topMaterial = new THREE.MeshLambertMaterial({ map: texture });
+
+        // Material array: [Right, Left, Top, Bottom, Front, Back]
+        const materials = [
+          sideMaterial, sideMaterial,
+          topMaterial, // Top face has the image
+          sideMaterial, sideMaterial, sideMaterial
+        ];
+
+        const cube = new THREE.Mesh(geometry, materials);
+
+        cube.position.x = startX + i * step;
+        cube.position.z = startZ + j * step;
+        cube.position.y = 0;
+
+        cube.userData = {
+          targetY: 0,
+          fullUrl: fullUrl
+        };
+
+        scene.add(cube);
+        cubes.push(cube);
+      }
+    }
+
+    // === 3. RAYCASTING SETUP ===
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2(9999, 9999);
+    let hoveredCube = null;
+
+    function onMouseMove(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    }
+    window.addEventListener('mousemove', onMouseMove, false);
+
+    // === 4. CLICK HANDLERS & LIGHTBOX ===
+    const mouseDownPos = new THREE.Vector2();
+
+    window.addEventListener('mousedown', (event) => {
+      mouseDownPos.x = event.clientX;
+      mouseDownPos.y = event.clientY;
+    });
+
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const closeBtn = document.getElementById('close-btn');
+
+    function openLightbox(url) {
+      lightboxImg.src = url;
+      lightbox.style.display = 'flex';
+      requestAnimationFrame(() => lightbox.classList.add('active'));
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('active');
+      setTimeout(() => {
+        lightbox.style.display = 'none';
+        lightboxImg.src = "";
+      }, 300);
+    }
+
+    window.addEventListener('click', (event) => {
+      const dx = event.clientX - mouseDownPos.x;
+      const dy = event.clientY - mouseDownPos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < 5 && hoveredCube) {
+        openLightbox(hoveredCube.userData.fullUrl);
+      }
+    });
+
+    lightbox.addEventListener('click', (e) => {
+      if (e.target !== lightboxImg) closeLightbox();
+    });
+    closeBtn.addEventListener('click', closeLightbox);
+
+    // === 5. ANIMATION LOOP ===
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(cubes);
+
+      if (intersects.length > 0) {
+        hoveredCube = intersects[0].object;
+      } else {
+        hoveredCube = null;
+      }
+
+      if (hoveredCube) {
+        document.body.style.cursor = 'pointer';
+      } else {
+        document.body.style.cursor = 'default';
+      }
+
+      cubes.forEach(cube => {
+        if (cube === hoveredCube) {
+          cube.userData.targetY = 5;
+        } else {
+          cube.userData.targetY = 0;
+        }
+        cube.position.y += (cube.userData.targetY - cube.position.y) * 0.15;
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+
+</html>
