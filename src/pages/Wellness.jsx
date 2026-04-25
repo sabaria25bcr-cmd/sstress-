@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Youtube, Play, Sparkles, Loader2, X, Heart, Brain, Wind, Activity, Music } from 'lucide-react';
 
 const INVIDIOUS_INSTANCES = [
-  'https://inv.vern.cc',
-  'https://invidious.lunar.icu',
+  'https://inv.nadeko.net',
+  'https://invidious.nerdvpn.de',
+  'https://inv.thepixora.com',
+  'https://yt.chocolatemoo53.com',
   'https://invidious.projectsegfau.lt',
-  'https://invidious.extopy.org',
-  'https://yewtu.be',
-  'https://vid.puffyan.us'
+  'https://yewtu.be'
 ];
 
 // Fallback high-quality wellness videos in case search fails

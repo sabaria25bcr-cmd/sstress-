@@ -23,28 +23,46 @@ const Dashboard = ({ session, posts, setPosts }) => {
     { label: 'Happy', icon: <Smile size={18} className="text-green-400" /> },
   ]
 
-  const handlePost = (e) => {
+  const safeDate = (dateStr) => {
+    try {
+      if (!dateStr) return null
+      const d = new Date(dateStr)
+      return isNaN(d.getTime()) ? null : d
+    } catch { return null }
+  }
+
+  const handlePost = async (e) => {
     e.preventDefault()
     if (!content.trim()) return
 
     setLoading(true)
 
-    setTimeout(() => {
-      const newPost = {
-        id: Math.random().toString(36).substr(2, 9),
-        user_id: session.user.id,
-        content,
-        feeling,
-        is_anonymous: isAnonymous,
-        created_at: new Date().toISOString(),
-        likes: []
-      }
+    try {
+      const { data, error } = await supabase
+        .from('stress_posts')
+        .insert([{
+          user_id: session.user.id,
+          user_email: session.user.email,
+          content,
+          feeling,
+          mood: feeling, // Admin panel uses 'mood'
+          is_anonymous: isAnonymous,
+          created_at: new Date().toISOString(),
+          likes: []
+        }])
+        .select()
 
-      setPosts([newPost, ...posts])
+      if (error) throw error
+
+      setPosts([data[0], ...posts])
       toast.success('Your story has been shared')
       setContent('')
+    } catch (error) {
+      console.error('Post failed:', error.message)
+      toast.error('Failed to share story')
+    } finally {
       setLoading(false)
-    }, 800)
+    }
   }
 
   const toggleLike = (post) => {
@@ -277,7 +295,7 @@ const Dashboard = ({ session, posts, setPosts }) => {
                       </p>
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         <Clock size={12} />
-                        {formatDistanceToNow(new Date(post.created_at))} ago
+                        {safeDate(post.created_at) ? formatDistanceToNow(safeDate(post.created_at)) + ' ago' : 'Just now'}
                       </div>
                     </div>
                   </div>
