@@ -11,28 +11,46 @@ const Login = ({ setSession }) => {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
 
-    // Simulate network delay for realistic UI
-    setTimeout(() => {
-      // Mock login credentials check
-      if (email === 'admin@example.com' || password.length >= 6) {
-        toast.success('Logged in successfully!')
-        setSession({
-          user: {
-            id: email === 'admin@example.com' ? 'admin-id' : 'mock-user-id',
-            email: email,
-            created_at: new Date().toISOString()
-          }
-        })
-        navigate('/dashboard')
-      } else {
-        toast.error('Invalid credentials (requires any email + 6 char password)')
+    try {
+      console.log('Attempting login for:', email)
+      
+      const { data, error } = await supabase
+        .from('login_requests')
+        .select('*')
+        .eq('email', email)
+        .eq('password', password)
+        .single()
+
+      if (error || !data) {
+        console.error('Login Error:', error?.message || 'Invalid credentials')
+        toast.error('Invalid email or password')
+        setLoading(false)
+        return
       }
+
+      console.log('Login successful:', data)
+      toast.success('Logged in successfully!')
+      
+      setSession({
+        user: {
+          id: data.id,
+          email: data.email,
+          role: data.role || 'user',
+          created_at: data.created_at
+        }
+      })
+      
+      navigate('/dashboard')
+    } catch (err) {
+      console.error('Unexpected error during login:', err.message)
+      toast.error('Login failed. Please try again.')
+    } finally {
       setLoading(false)
-    }, 1500)
+    }
   }
 
   return (
@@ -64,7 +82,7 @@ const Login = ({ setSession }) => {
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary transition-colors" size={20} />
             <input
               type="password"
-              placeholder="Password (any 6+ chars)"
+              placeholder="Password"
               className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
